@@ -1,0 +1,42 @@
+# Data Configuration
+dataset:
+  name: "kinetics400"
+  root_dir: "./data/kinetics400"
+  subset_size: 2000  # Number of videos to use
+  train_split: 0.8
+  val_split: 0.1
+  test_split: 0.1
+  num_classes: 20
+  
+video:
+  fps: 30
+  max_frames: 150  # 5 seconds at 30fps
+  target_frames: 16  # Number of frames to sample
+  frame_size: [224, 224]
+  channels: 3
+  
+audio:
+  sample_rate: 16000
+  duration: 10.0  # seconds
+  n_mels: 128
+  hop_length: 512
+  n_fft: 2048
+  
+augmentation:
+  enabled: true
+  random_crop: true
+  random_flip: true
+  color_jitter:
+    brightness: 0.2
+    contrast: 0.2
+    saturation: 0.2
+    hue: 0.1
+  random_rotation: 10
+  mixup_alpha: 0.2
+  
+dataloader:
+  batch_size: 2
+  num_workers: 0
+  pin_memory: false
+  prefetch_factor: 2
+  persistent_workers: false

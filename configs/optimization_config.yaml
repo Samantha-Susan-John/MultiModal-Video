@@ -1,0 +1,52 @@
+# Model Optimization Configuration
+pruning:
+  enabled: true
+  method: "magnitude"  # magnitude, movement, or lottery_ticket
+  target_sparsity: 0.5
+  schedule: "gradual"  # one_shot or gradual
+  num_iterations: 10
+  pruning_frequency: 5
+  layers_to_prune:
+    - "vision_encoder"
+    - "temporal_encoder"
+  layer_wise_sparsity:
+    vision_encoder: 0.5
+    temporal_encoder: 0.4
+    classification_head: 0.3
+    
+quantization:
+  enabled: true
+  method: "post_training"  # post_training or quantization_aware
+  backend: "qnnpack"
+  dtype: "qint8"
+  per_channel: true
+  calibration_batches: 100
+  modules_to_quantize:
+    - "nn.Linear"
+    - "nn.Conv2d"
+    
+distillation:
+  enabled: true
+  temperature: 4.0
+  alpha: 0.7  # Weight for distillation loss
+  teacher_checkpoint: null
+  student_config:
+    vision_encoder: "mobilenet_v3_small"
+    hidden_dim: 256
+    num_layers: 2
+    
+compression:
+  target_size_mb: 50
+  target_speedup: 2.5
+  acceptable_accuracy_drop: 0.05
+  
+evaluation:
+  metrics:
+    - "flops"
+    - "params"
+    - "inference_time"
+    - "memory_usage"
+    - "model_size"
+  device: "mps"
+  batch_size: 1
+  num_runs: 100

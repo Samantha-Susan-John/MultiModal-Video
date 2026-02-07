@@ -1,0 +1,38 @@
+# Reinforcement Learning Configuration
+agent:
+  type: "dqn"  # dqn or policy_gradient
+  state_dim: 512
+  action_space: 300  # Maximum frame indices to choose from
+  hidden_dims: [256, 128]
+  learning_rate: 0.0001
+  gamma: 0.99  # Discount factor
+  epsilon_start: 1.0
+  epsilon_end: 0.01
+  epsilon_decay: 0.995
+  target_update_frequency: 10  # episodes
+  
+replay_buffer:
+  capacity: 10000
+  batch_size: 64
+  prioritized: true
+  alpha: 0.6  # Prioritization exponent
+  beta_start: 0.4
+  beta_frames: 100000
+  
+reward:
+  accuracy_weight: 1.0
+  efficiency_weight: 0.3  # Reward for using fewer frames
+  diversity_weight: 0.2  # Reward for diverse frame selection
+  min_frames: 8
+  max_frames: 32
+  
+training:
+  num_episodes: 1000
+  max_steps_per_episode: 32
+  warmup_episodes: 50
+  save_frequency: 50
+  eval_frequency: 10
+  
+exploration:
+  strategy: "epsilon_greedy"  # epsilon_greedy or boltzmann
+  temperature: 1.0  # For boltzmann exploration

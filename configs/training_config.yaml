@@ -1,0 +1,73 @@
+# Training Configuration
+training:
+  num_epochs: 10
+  device: "cpu"  # mps for Apple Silicon, cuda, or cpu
+  seed: 42
+  gradient_clip: 1.0
+  mixed_precision: false
+  gradient_checkpointing: false
+  
+optimizer:
+  name: "adamw"
+  learning_rate: 0.0001
+  weight_decay: 0.01
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+  
+scheduler:
+  name: "cosine"  # cosine, step, or plateau
+  warmup_epochs: 5
+  min_lr: 1.0e-6
+  patience: 10  # For plateau scheduler
+  
+loss:
+  classification_weight: 1.0
+  captioning_weight: 0.5
+  sync_weight: 0.3  # Audio-visual synchronization
+  label_smoothing: 0.1
+  
+multi_task:
+  enabled: true
+  task_weights:
+    action_classification: 1.0
+    video_captioning: 0.5
+    av_sync: 0.3
+  dynamic_weighting: false  # Adaptive task weighting
+  
+phases:
+  phase1:  # Pretrain encoders
+    enabled: true
+    epochs: 20
+    freeze_decoder: true
+    tasks: ["action_classification"]
+    
+  phase2:  # Multi-modal fusion
+    enabled: true
+    epochs: 30
+    freeze_encoders: false
+    tasks: ["action_classification", "video_captioning"]
+    
+  phase3:  # RL training
+    enabled: true
+    epochs: 30
+    use_rl: true
+    
+  phase4:  # Joint fine-tuning
+    enabled: true
+    epochs: 20
+    unfreeze_all: true
+    
+checkpointing:
+  save_dir: "./checkpoints"
+  save_frequency: 5
+  keep_last_n: 3
+  save_best: true
+  monitor: "val_accuracy"
+  
+logging:
+  log_dir: "./logs"
+  use_wandb: false
+  wandb_project: "multimodal-video-rl"
+  wandb_entity: null
+  log_frequency: 10  # steps
+  image_log_frequency: 100

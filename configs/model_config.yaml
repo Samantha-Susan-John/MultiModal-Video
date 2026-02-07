@@ -1,0 +1,48 @@
+# Model Architecture Configuration
+vision_encoder:
+  name: "efficientnet_b0"  # or "mobilevit_s"
+  pretrained: true
+  freeze_backbone: false
+  output_dim: 512
+  dropout: 0.2
+  
+audio_encoder:
+  name: "wav2vec2"
+  model_name: "facebook/wav2vec2-base"
+  pretrained: true
+  freeze_layers: 8  # Freeze first 8 transformer layers
+  output_dim: 512
+  pooling: "mean"  # mean, max, or attention
+  
+temporal_encoder:
+  type: "transformer"  # transformer or lstm
+  hidden_dim: 256
+  num_layers: 2
+  num_heads: 4
+  dropout: 0.1
+  max_seq_length: 16
+  
+fusion:
+  type: "cross_attention"  # cross_attention, concat, or film
+  hidden_dim: 512
+  num_heads: 8
+  dropout: 0.1
+  
+text_decoder:
+  name: "gpt2"
+  model_name: "gpt2"
+  pretrained: true
+  max_length: 50
+  vocab_size: 50257
+  output_dim: 768
+  
+classification_head:
+  hidden_dims: [512, 256]
+  num_classes: 20
+  dropout: 0.3
+  activation: "relu"
+  
+captioning_head:
+  hidden_dim: 512
+  num_layers: 2
+  dropout: 0.2
