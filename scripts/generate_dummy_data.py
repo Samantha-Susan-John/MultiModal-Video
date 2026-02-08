@@ -78,6 +78,9 @@ def create_dummy_dataset(root_dir: str = './data/kinetics400',
     ]
     classes = all_classes[:num_classes]
     
+    # Create root directory
+    root_path.mkdir(parents=True, exist_ok=True)
+    
     # Save classes
     with open(root_path / 'classes.json', 'w') as f:
         json.dump(classes, f, indent=2)
