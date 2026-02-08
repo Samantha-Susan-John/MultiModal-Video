@@ -4,8 +4,8 @@ from pathlib import Path
 
 import torch
 from src.utils.config import load_all_configs
-from src.data.dataset import Kinetics400Dataset, create_dataloader
-from src.data.augmentation import MultiModalAugmentation
+from src.dataloaders.dataset import Kinetics400Dataset, create_dataloader
+from src.dataloaders.augmentation import MultiModalAugmentation
 from src.models.multimodal_model import MultiModalVideoModel
 from src.training.trainer import MultiTaskTrainer
 from src.utils.logger import ExperimentLogger, create_experiment_name

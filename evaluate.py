@@ -3,7 +3,7 @@ import argparse
 import torch
 
 from src.utils.config import load_all_configs
-from src.data.dataset import Kinetics400Dataset, create_dataloader
+from src.dataloaders.dataset import Kinetics400Dataset, create_dataloader
 from src.models.multimodal_model import MultiModalVideoModel
 from src.utils.metrics import evaluate_model_comprehensive, print_model_summary
 
