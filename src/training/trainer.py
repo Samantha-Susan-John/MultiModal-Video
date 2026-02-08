@@ -73,6 +73,7 @@ class MultiTaskTrainer:
         self.save_dir.mkdir(parents=True, exist_ok=True)
         self.save_frequency = checkpoint_config.get('save_frequency', 5)
         self.keep_last_n = checkpoint_config.get('keep_last_n', 3)
+        self.save_only_best = checkpoint_config.get('save_only_best', True)  # Only save best by default
         
         # Logging
         logging_config = config.get('logging', {})
@@ -311,14 +312,21 @@ class MultiTaskTrainer:
             if self.use_wandb:
                 wandb.log(metrics)
             
-            # Save checkpoint
-            if (epoch + 1) % self.save_frequency == 0:
-                self.save_checkpoint(epoch, metrics)
-            
-            # Save best model
-            if val_metrics['val_acc'] > self.best_val_acc:
-                self.best_val_acc = val_metrics['val_acc']
-                self.save_checkpoint(epoch, metrics, is_best=True)
+            # Save checkpoints
+            if self.save_only_best:
+                # Only save when we beat previous best
+                if val_metrics['val_acc'] > self.best_val_acc:
+                    self.best_val_acc = val_metrics['val_acc']
+                    self.save_checkpoint(epoch, metrics, is_best=True)
+            else:
+                # Save periodic checkpoints
+                if epoch % self.save_frequency == 0:
+                    self.save_checkpoint(epoch, metrics)
+                
+                # Also save best model
+                if val_metrics['val_acc'] > self.best_val_acc:
+                    self.best_val_acc = val_metrics['val_acc']
+                    self.save_checkpoint(epoch, metrics, is_best=True)
         
         print("Training complete!")
         
@@ -331,7 +339,7 @@ class MultiTaskTrainer:
         metrics: Dict,
         is_best: bool = False
     ):
-        """Save model checkpoint."""
+        """Save model checkpoint and upload to HuggingFace Hub."""
         checkpoint = {
             'epoch': epoch,
             'model_state_dict': self.model.state_dict(),
@@ -344,39 +352,68 @@ class MultiTaskTrainer:
             checkpoint['scheduler_state_dict'] = self.scheduler.state_dict()
         
         if is_best:
-            path = self.save_dir / 'best_model.pth'
+            filename = 'best_model.pth'
         else:
-            path = self.save_dir / f'checkpoint_epoch_{epoch}.pth'
+            filename = f'checkpoint_epoch_{epoch}.pth'
         
+        path = self.save_dir / filename
         torch.save(checkpoint, path)
-        print(f"Saved checkpoint: {path}")
         
-        # Try GitHub push first, fallback to Colab download
+        size_mb = path.stat().st_size / (1024**2)
+        print(f"Saved checkpoint: {path} ({size_mb:.2f} MB)")
+        
+        # Auto-upload to HuggingFace Hub (if in Colab)
         try:
             import sys
             if 'google.colab' in sys.modules:
-                # Try git push
-                try:
-                    from src.utils.checkpoint_manager import GitCheckpointManager
-                    manager = GitCheckpointManager(
-                        repo_path='/content/MultiModal-Video',
-                        auto_push=True,
-                        keep_local=False
-                    )
-                    manager.save_and_push(
-                        checkpoint,
-                        path.name,
-                        f"Epoch {epoch}: acc={metrics.get('val_acc', 0):.2f}%"
-                    )
-                except Exception as git_error:
-                    # Fallback to file download
-                    print(f"Git push failed: {git_error}")
-                    print(f"Downloading checkpoint to your Mac instead...")
-                    from google.colab import files
-                    files.download(str(path))
+                self._upload_to_huggingface(path, filename, epoch, metrics)
         except Exception as e:
-            # Not in Colab or all methods failed, keep local only
-            pass
+            print(f"HuggingFace upload skipped: {e}")
+    
+    def _upload_to_huggingface(self, checkpoint_path, filename, epoch, metrics):
+        """Upload checkpoint to HuggingFace Hub."""
+        try:
+            from huggingface_hub import HfApi, create_repo
+            import os
+            
+            # Get HF token from Colab secrets
+            try:
+                from google.colab import userdata
+                hf_token = userdata.get('HF_TOKEN')
+            except:
+                print("⚠️ Add HF_TOKEN to Colab Secrets to enable auto-upload")
+                print("   Create token at: https://huggingface.co/settings/tokens")
+                return
+            
+            api = HfApi()
+            repo_id = "Samantha-Susan-John/MultiModal-Video-Checkpoints"
+            
+            # Create repo if doesn't exist
+            try:
+                create_repo(repo_id, token=hf_token, repo_type="model", exist_ok=True)
+            except:
+                pass
+            
+            # Upload checkpoint
+            print(f"Uploading to HuggingFace Hub: {repo_id}...")
+            api.upload_file(
+                path_or_fileobj=str(checkpoint_path),
+                path_in_repo=filename,
+                repo_id=repo_id,
+                token=hf_token,
+                commit_message=f"Epoch {epoch}: val_acc={metrics.get('val_acc', 0):.2f}%"
+            )
+            
+            print(f"✓ Uploaded to: https://huggingface.co/{repo_id}")
+            print(f"✓ You can download anytime from HuggingFace")
+            
+            # Clean up local file to save Colab disk space
+            checkpoint_path.unlink()
+            print(f"✓ Cleaned up local checkpoint (saved on HuggingFace)")
+            
+        except Exception as e:
+            print(f"HuggingFace upload failed: {e}")
+            print(f"Checkpoint saved locally at: {checkpoint_path}")
     
     def load_checkpoint(self, path: str):
         """Load model checkpoint."""
