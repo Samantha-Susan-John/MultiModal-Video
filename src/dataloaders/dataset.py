@@ -19,7 +19,9 @@ class Kinetics400Dataset(Dataset):
         root_dir: str,
         split: str = 'train',
         config: Optional[Dict] = None,
-        transform: Optional[MultiModalAugmentation] = None
+        transform: Optional[MultiModalAugmentation] = None,
+        load_audio: bool = True,
+        load_video: bool = True
     ):
         """
         Initialize dataset.
@@ -29,10 +31,14 @@ class Kinetics400Dataset(Dataset):
             split: 'train', 'val', or 'test'
             config: Data configuration dictionary
             transform: Augmentation pipeline
+            load_audio: Whether to load audio
+            load_video: Whether to load video frames
         """
         self.root_dir = Path(root_dir)
         self.split = split
         self.config = config or {}
+        self.load_audio = load_audio
+        self.load_video = load_video
         
         # Load annotations
         annotation_file = self.root_dir / f'{split}_annotations.json'
@@ -109,18 +115,25 @@ class Kinetics400Dataset(Dataset):
         
         try:
             # Load video
-            video_frames = self.video_loader.load_video(video_path)
-            
-            # Sample frames uniformly
-            video_frames = uniform_temporal_sampling(video_frames, self.num_frames)
+            if self.load_video:
+                video_frames = self.video_loader.load_video(video_path)
+                # Sample frames uniformly
+                video_frames = uniform_temporal_sampling(video_frames, self.num_frames)
+            else:
+                # Create dummy video tensor
+                video_frames = torch.zeros(self.num_frames, 3, 224, 224)
             
             # Load audio
-            try:
-                audio_waveform = self.audio_extractor.extract_audio(video_path)
-                audio_waveform = pad_or_truncate(audio_waveform, self.audio_length)
-            except Exception as e:
-                # Use silent audio if extraction fails
-                print(f"Warning: Audio extraction failed for {video_path}: {e}")
+            if self.load_audio:
+                try:
+                    audio_waveform = self.audio_extractor.extract_audio(video_path)
+                    audio_waveform = pad_or_truncate(audio_waveform, self.audio_length)
+                except Exception as e:
+                    # Use silent audio if extraction fails
+                    print(f"Warning: Audio extraction failed for {video_path}: {e}")
+                    audio_waveform = torch.zeros(1, self.audio_length)
+            else:
+                # Create dummy audio tensor
                 audio_waveform = torch.zeros(1, self.audio_length)
             
             # Apply augmentation

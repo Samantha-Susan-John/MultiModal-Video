@@ -3,7 +3,7 @@ import torch
 import torchvision.transforms as T
 import torchaudio.transforms as AT
 import random
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Union
 
 
 class MultiModalAugmentation:
@@ -11,8 +11,9 @@ class MultiModalAugmentation:
     
     def __init__(
         self,
-        mode: str = 'train',
-        video_size: Tuple[int, int] = (224, 224),
+        config: Optional[Union[Dict, str]] = None,
+        mode: Optional[str] = None,
+        video_size: Optional[Tuple[int, int]] = None,
         audio_augment: bool = True,
         temporal_augment: bool = True
     ):
@@ -20,27 +21,41 @@ class MultiModalAugmentation:
         Initialize augmentation pipeline.
         
         Args:
-            mode: 'train' or 'val'
-            video_size: Target video frame size
+            config: Configuration dictionary or mode string ('train'/'val')
+            mode: 'train' or 'val' (overrides config if provided)
+            video_size: Target video frame size (overrides config if provided)
             audio_augment: Apply audio augmentations
             temporal_augment: Apply temporal augmentations
         """
-        self.mode = mode
-        self.video_size = video_size
-        self.audio_augment = audio_augment and (mode == 'train')
-        self.temporal_augment = temporal_augment and (mode == 'train')
+        # Handle both config dict and direct mode string
+        if isinstance(config, str):
+            # Legacy support: config is actually the mode
+            self.mode = config
+            self.video_size = video_size or (224, 224)
+        elif isinstance(config, dict):
+            # Extract from config dict
+            video_config = config.get('video', {})
+            self.mode = mode or 'train'
+            self.video_size = tuple(video_config.get('frame_size', [224, 224]))
+        else:
+            # Default values
+            self.mode = mode or 'train'
+            self.video_size = video_size or (224, 224)
+        
+        self.audio_augment = audio_augment and (self.mode == 'train')
+        self.temporal_augment = temporal_augment and (self.mode == 'train')
         
         # Video transforms
-        if mode == 'train':
+        if self.mode == 'train':
             self.video_transform = T.Compose([
-                T.RandomResizedCrop(video_size, scale=(0.8, 1.0)),
+                T.RandomResizedCrop(self.video_size, scale=(0.8, 1.0)),
                 T.RandomHorizontalFlip(p=0.5),
                 T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
                 T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
             ])
         else:
             self.video_transform = T.Compose([
-                T.Resize(video_size),
+                T.Resize(self.video_size),
                 T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
             ])
         
