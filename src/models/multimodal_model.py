@@ -160,8 +160,13 @@ class MultiModalVideoModel(nn.Module):
         
         # Extract audio features if provided
         if audio is not None:
+            # Handle different audio input shapes
+            if audio.dim() == 3 and audio.size(1) == 1:
+                # Batched mono audio (B, 1, samples) -> squeeze to (B, samples)
+                audio = audio.squeeze(1)
+            
             if audio.dim() == 2 and audio.size(-1) > 1000:
-                # Raw audio waveform
+                # Raw audio waveform (B, samples)
                 audio_features = self.audio_encoder(audio)  # (B, D)
             else:
                 # Already extracted features
