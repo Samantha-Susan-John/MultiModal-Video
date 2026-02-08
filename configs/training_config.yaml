@@ -59,9 +59,10 @@ phases:
     
 checkpointing:
   save_dir: "./checkpoints"
-  save_frequency: 5
+  save_frequency: 5  # Save every N epochs (if save_only_best=False)
   keep_last_n: 3
   save_best: true
+  save_only_best: true  # Only save when validation accuracy improves (saves space!)
   monitor: "val_accuracy"
   
 logging:
