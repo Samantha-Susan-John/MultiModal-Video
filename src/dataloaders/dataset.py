@@ -210,7 +210,20 @@ def collate_multimodal(batch: List[Dict]) -> Dict[str, torch.Tensor]:
     Returns:
         Batched dictionary
     """
-    video = torch.stack([item['video'] for item in batch])
+    # Find max sequence length for videos
+    max_video_len = max(item['video'].shape[0] for item in batch)
+    
+    # Pad videos to same length
+    padded_videos = []
+    for item in batch:
+        video = item['video']
+        if video.shape[0] < max_video_len:
+            # Pad with zeros
+            padding = torch.zeros(max_video_len - video.shape[0], *video.shape[1:])
+            video = torch.cat([video, padding], dim=0)
+        padded_videos.append(video)
+    
+    video = torch.stack(padded_videos)
     audio = torch.stack([item['audio'] for item in batch])
     labels = torch.stack([item['label'] for item in batch])
     
