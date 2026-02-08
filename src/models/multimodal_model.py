@@ -46,10 +46,18 @@ class MultiModalVideoModel(nn.Module):
         # Temporal encoder
         temporal_config = config.get('temporal_encoder', {})
         temporal_type = temporal_config.get('type', 'transformer')
+        temporal_hidden = temporal_config.get('hidden_dim', 512)
+        
+        # Add projection layer if vision and temporal dims don't match
+        vision_out_dim = vision_config.get('output_dim', 512)
+        if vision_out_dim != temporal_hidden:
+            self.vision_projection = nn.Linear(vision_out_dim, temporal_hidden)
+        else:
+            self.vision_projection = None
         
         if temporal_type == 'transformer':
             self.temporal_encoder = TemporalTransformer(
-                hidden_dim=temporal_config.get('hidden_dim', 512),
+                hidden_dim=temporal_hidden,
                 num_layers=temporal_config.get('num_layers', 4),
                 num_heads=temporal_config.get('num_heads', 8),
                 dropout=temporal_config.get('dropout', 0.1),
@@ -57,16 +65,31 @@ class MultiModalVideoModel(nn.Module):
             )
         else:
             self.temporal_encoder = TemporalLSTM(
-                input_dim=temporal_config.get('hidden_dim', 512),
-                hidden_dim=temporal_config.get('hidden_dim', 512),
+                input_dim=temporal_hidden,
+                hidden_dim=temporal_hidden,
                 num_layers=temporal_config.get('num_layers', 2),
                 dropout=temporal_config.get('dropout', 0.1)
             )
         
         # Multi-modal fusion
         fusion_config = config.get('fusion', {})
+        fusion_hidden = fusion_config.get('hidden_dim', 512)
+        
+        # Add projection layers if audio and fusion dims don't match
+        audio_out_dim = audio_config.get('output_dim', 512)
+        if audio_out_dim != fusion_hidden:
+            self.audio_projection = nn.Linear(audio_out_dim, fusion_hidden)
+        else:
+            self.audio_projection = None
+        
+        # Add projection from temporal to fusion if needed
+        if temporal_hidden != fusion_hidden:
+            self.temporal_to_fusion = nn.Linear(temporal_hidden, fusion_hidden)
+        else:
+            self.temporal_to_fusion = None
+        
         self.fusion = MultiModalFusion(
-            hidden_dim=fusion_config.get('hidden_dim', 512),
+            hidden_dim=fusion_hidden,
             fusion_type=fusion_config.get('type', 'cross_attention'),
             num_heads=fusion_config.get('num_heads', 8),
             dropout=fusion_config.get('dropout', 0.1)
@@ -75,7 +98,7 @@ class MultiModalVideoModel(nn.Module):
         # Task heads
         classification_config = config.get('classification_head', {})
         self.classification_head = ClassificationHead(
-            input_dim=fusion_config.get('hidden_dim', 512),
+            input_dim=fusion_hidden,
             hidden_dims=classification_config.get('hidden_dims', [512, 256]),
             num_classes=classification_config.get('num_classes', 400),
             dropout=classification_config.get('dropout', 0.3)
@@ -83,7 +106,7 @@ class MultiModalVideoModel(nn.Module):
         
         captioning_config = config.get('captioning_head', {})
         self.captioning_head = CaptioningHead(
-            input_dim=fusion_config.get('hidden_dim', 512),
+            input_dim=fusion_hidden,
             hidden_dim=captioning_config.get('hidden_dim', 512),
             num_layers=captioning_config.get('num_layers', 2),
             dropout=captioning_config.get('dropout', 0.2)
@@ -118,8 +141,22 @@ class MultiModalVideoModel(nn.Module):
         # Extract vision features
         video_features = self.vision_encoder(video)  # (B, T, D)
         
+        # Project to temporal dimension if needed
+        if self.vision_projection is not None:
+            B, T, D = video_features.shape
+            video_features = video_features.view(B * T, D)
+            video_features = self.vision_projection(video_features)
+            video_features = video_features.view(B, T, -1)
+        
         # Temporal modeling
         video_temporal = self.temporal_encoder(video_features)  # (B, T, D)
+        
+        # Project temporal features to fusion dimension if needed
+        if self.temporal_to_fusion is not None:
+            B, T, D = video_temporal.shape
+            video_temporal = video_temporal.view(B * T, D)
+            video_temporal = self.temporal_to_fusion(video_temporal)
+            video_temporal = video_temporal.view(B, T, -1)
         
         # Extract audio features if provided
         if audio is not None:
@@ -129,6 +166,10 @@ class MultiModalVideoModel(nn.Module):
             else:
                 # Already extracted features
                 audio_features = audio
+            
+            # Project audio to fusion dimension if needed
+            if self.audio_projection is not None:
+                audio_features = self.audio_projection(audio_features)
             
             # Multi-modal fusion
             fused_features = self.fusion(video_temporal, audio_features)  # (B, T, D)
