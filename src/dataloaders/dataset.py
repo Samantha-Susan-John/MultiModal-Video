@@ -217,7 +217,7 @@ def collate_multimodal(batch: List[Dict]) -> Dict[str, torch.Tensor]:
     collated = {
         'video': video,
         'audio': audio,
-        'labels': labels,
+        'label': labels,
         'video_paths': [item['video_path'] for item in batch]
     }
     

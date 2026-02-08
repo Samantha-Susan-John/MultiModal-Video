@@ -107,9 +107,10 @@ def create_dummy_dataset(root_dir: str = './data/kinetics400',
             pattern = patterns[i % len(patterns)]
             generate_video(str(video_path), duration=10, fps=30, pattern=pattern)
             
-            # Create annotation
+            # Create annotation with relative path
+            relative_path = f'{split}/{video_name}'
             annotations.append({
-                'video_path': str(video_path),
+                'video_path': relative_path,
                 'label': class_idx,
                 'class_name': class_name,
                 'caption': f"A person performing {class_name.replace('_', ' ')}"
