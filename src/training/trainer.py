@@ -350,6 +350,18 @@ class MultiTaskTrainer:
         
         torch.save(checkpoint, path)
         print(f"Saved checkpoint: {path}")
+        
+        # Auto-download in Colab after each epoch
+        try:
+            import sys
+            if 'google.colab' in sys.modules:
+                from google.colab import files
+                print(f"Downloading checkpoint to your Mac: {path.name}")
+                files.download(str(path))
+                print(f"✓ Download started for {path.name}")
+        except Exception as e:
+            # Not in Colab or download failed, skip silently
+            pass
     
     def load_checkpoint(self, path: str):
         """Load model checkpoint."""

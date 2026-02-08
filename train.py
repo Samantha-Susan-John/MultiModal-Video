@@ -41,6 +41,12 @@ def parse_args():
         help='Path to checkpoint to resume from'
     )
     parser.add_argument(
+        '--checkpoint-dir',
+        type=str,
+        default='./checkpoints',
+        help='Directory to save checkpoints'
+    )
+    parser.add_argument(
         '--experiment-name',
         type=str,
         default=None,
@@ -115,6 +121,11 @@ def main():
     
     logger.log_message(f"Train samples: {len(train_dataset)}")
     logger.log_message(f"Val samples: {len(val_dataset)}")
+    
+    # Override checkpoint directory if specified
+    if args.checkpoint_dir:
+        configs['training_config']['checkpointing']['save_dir'] = args.checkpoint_dir
+        logger.log_message(f"Checkpoint directory: {args.checkpoint_dir}")
     
     # Create model
     logger.log_message("Creating model...")
