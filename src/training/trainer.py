@@ -351,16 +351,31 @@ class MultiTaskTrainer:
         torch.save(checkpoint, path)
         print(f"Saved checkpoint: {path}")
         
-        # Auto-download in Colab after each epoch
+        # Try GitHub push first, fallback to Colab download
         try:
             import sys
             if 'google.colab' in sys.modules:
-                from google.colab import files
-                print(f"Downloading checkpoint to your Mac: {path.name}")
-                files.download(str(path))
-                print(f"✓ Download started for {path.name}")
+                # Try git push
+                try:
+                    from src.utils.checkpoint_manager import GitCheckpointManager
+                    manager = GitCheckpointManager(
+                        repo_path='/content/MultiModal-Video',
+                        auto_push=True,
+                        keep_local=False
+                    )
+                    manager.save_and_push(
+                        checkpoint,
+                        path.name,
+                        f"Epoch {epoch}: acc={metrics.get('val_acc', 0):.2f}%"
+                    )
+                except Exception as git_error:
+                    # Fallback to file download
+                    print(f"Git push failed: {git_error}")
+                    print(f"Downloading checkpoint to your Mac instead...")
+                    from google.colab import files
+                    files.download(str(path))
         except Exception as e:
-            # Not in Colab or download failed, skip silently
+            # Not in Colab or all methods failed, keep local only
             pass
     
     def load_checkpoint(self, path: str):
